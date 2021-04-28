@@ -13,6 +13,11 @@ function question (query: string): Promise<string> {
   });
 }
 
+function close () {
+  _rl.close();
+}
+
 export const rl = {
+  close,
   question,
 };

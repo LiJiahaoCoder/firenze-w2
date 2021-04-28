@@ -13,12 +13,14 @@ export default class Game {
     [Round.Turn]: [0],
     [Round.River]: [0],
   };
+  private readonly _playersNumber: number;
+  private readonly _buttonIndex: number;
   private readonly _pokers: Poker[] = Pokers;
-  private readonly _players: Player[];
   private readonly _button: Player;
   private readonly _smallBlind: Player;
   private readonly _bigBlind?: Player;
   private readonly _bustedPlayers: Player[] = [];
+  private _players: Player[];
   private _operatingPlayer!: Player | null;
   private _operatedPlayers: Player[] = [];
   private  _waitingPlayers: Player[] = [];
@@ -30,28 +32,34 @@ export default class Game {
       throw new Error('牌局至少有两名玩家');
     }
 
+    this._playersNumber = players.length;
     this._initialBigBlindBidBankRoll = initialBigBlindBidBankRoll;
-    this._players = players;
-    this._button = players[Math.floor(Math.random() * players.length)];
+    this._buttonIndex = Math.floor(Math.random() * players.length);
+    this._button = players[this._buttonIndex];
     this._smallBlind = players[this.smallBlindIndex];
     this._bigBlind = this.bigBlindIndex === -1 ? undefined : players[this.bigBlindIndex];
+    this._players = this.initializePlayers(players);
     console.info(chalk.yellow(`<- 游戏开始，庄家为：玩家${this._button.name} ->`));
   }
 
+  private get playersNumber () {
+    return this._playersNumber;
+  }
+
   private get buttonIndex () {
-    return this._players.findIndex((player) => player.id === this._button.id);
+    return this._buttonIndex;
   }
 
   private get smallBlindIndex () {
-    return this.buttonIndex + 1 + 1 <= this._players.length ? this.buttonIndex + 1 : 0;
+    return this.buttonIndex + 1 + 1 <= this.playersNumber ? this.buttonIndex + 1 : 0;
   }
 
   private get bigBlindIndex () {
-    if (this._players.length === 2) {
+    if (this.playersNumber === 2) {
       return -1;
     }
 
-    return this.smallBlindIndex + 1 + 1 <= this._players.length ? this.smallBlindIndex + 1 : 0;
+    return this.smallBlindIndex + 1 + 1 <= this.playersNumber ? this.smallBlindIndex + 1 : 0;
   }
 
   private get canCheck () {
@@ -91,12 +99,14 @@ export default class Game {
       operations.push(Operation.Bid);
     }
 
-    if (!this.canCheck) {
-      operations.push(Operation.Call, Operation.Raise);
-    }
-
     if (this._operatingPlayer!.bankRoll > 0 && this._operatingPlayer!.bankRoll < callCount) {
       operations.push(Operation.AllIn);
+    } else if (!this.canCheck) {
+      operations.push(Operation.Call);
+
+      if (this._operatingPlayer!.bankRoll >= callCount + this._initialBigBlindBidBankRoll) {
+        operations.push(Operation.Raise);
+      }
     }
 
     return operations;
@@ -110,6 +120,30 @@ export default class Game {
     return this._pokers.splice(start, count);
   }
 
+  private initializePlayers (players: Player[]) {
+    const _players: Player[] = [];
+
+    _players.push(this._smallBlind);
+    if (this._bigBlind) {
+      _players.push(this._bigBlind);
+    }
+
+    if (this.buttonIndex > this.bigBlindIndex) {
+      _players.push(...players.slice(this.bigBlindIndex + 1, this.buttonIndex));
+    } else {
+      _players.push(...players.slice(this.bigBlindIndex + 1));
+      _players.push(...players.slice(0, this.buttonIndex));
+    }
+
+    _players.push(this._button);
+
+    return _players;
+  }
+
+  private initializeWaitingPlayers () {
+    this._waitingPlayers = this._players.slice();
+  }
+
   private initializeRoundRoles() {
     this.initializeWaitingPlayers();
     this._operatedPlayers = [];
@@ -118,17 +152,16 @@ export default class Game {
 
   private dealHolePokers() {
     console.info(chalk.green('分发底牌...'));
-    const playersCount = this._players.length;
 
-    if (this.buttonIndex === playersCount - 1) {
+    if (this.buttonIndex === this.playersNumber - 1) {
       this._players.forEach((player) => {
         player.pokers = this.deal(0, 2);
       });
     } else {
-      for (let i = 0; i < this._players.length; i++) {
+      for (let i = 0; i < this.playersNumber; i++) {
         if (i <= this.buttonIndex) {
           this._players[i].pokers = this.deal(
-              (playersCount - this.buttonIndex - 1) * 2,
+              (this.playersNumber - this.buttonIndex - 1) * 2,
               2
           );
           continue;
@@ -139,23 +172,6 @@ export default class Game {
     }
 
     console.info(chalk.green('> 底牌分发完毕'));
-  }
-
-  private initializeWaitingPlayers () {
-    const players = this._players.slice();
-    this._waitingPlayers.push(this._smallBlind);
-    if (this._bigBlind) {
-      this._waitingPlayers.push(this._bigBlind);
-    }
-
-    if (this.buttonIndex > this.bigBlindIndex) {
-      this._waitingPlayers.push(...players.slice(this.bigBlindIndex + 1, this.buttonIndex));
-    } else {
-      this._waitingPlayers.push(...players.slice(this.bigBlindIndex + 1));
-      this._waitingPlayers.push(...players.slice(0, this.buttonIndex));
-    }
-
-    this._waitingPlayers.push(this._button);
   }
 
   private increasePot (count: number) {
@@ -171,6 +187,8 @@ export default class Game {
   }
 
   private addBustedPlayer (player: Player) {
+    const bustedPlayerId = this._players.findIndex((p) => p.id === player.id);
+    this._players.splice(bustedPlayerId, 1);
     this._bustedPlayers.push(player);
   }
 
@@ -192,7 +210,7 @@ export default class Game {
     this._operatingPlayer = this._waitingPlayers.shift()!;
     this._operatingPlayer!.bid(this._initialBigBlindBidBankRoll / 2);
     this.increasePot(this._initialBigBlindBidBankRoll / 2);
-    console.info(chalk.cyan(`玩家${this.smallBlindIndex + 1}（小盲注）下注：${this._initialBigBlindBidBankRoll / 2}`));
+    console.info(chalk.cyan(`${this._smallBlind.name}（小盲注）下注：${this._initialBigBlindBidBankRoll / 2}`));
     console.info(chalk.cyan(`当前底池金额：${this.currentPotCount}，${this._smallBlind.name}手中还有筹码：${this._smallBlind.bankRoll}`));
     this._operatedPlayers.push(this._operatingPlayer);
 
@@ -200,7 +218,7 @@ export default class Game {
       this._operatingPlayer = this._waitingPlayers.shift()!;
       this._operatingPlayer!.bid(this._initialBigBlindBidBankRoll);
       this.increasePot(this._initialBigBlindBidBankRoll);
-      console.info(chalk.cyan(`玩家${this.bigBlindIndex + 1}（大盲注）下注：${this._initialBigBlindBidBankRoll}`));
+      console.info(chalk.cyan(`${this._bigBlind.name}（大盲注）下注：${this._initialBigBlindBidBankRoll}`));
       console.info(chalk.cyan(`当前底池金额：${this.currentPotCount}，${this._bigBlind.name}手中还有筹码：${this._bigBlind.bankRoll}`));
       this._operatedPlayers.push(this._operatingPlayer);
     }
@@ -360,6 +378,7 @@ export default class Game {
     await this.river();
 
     console.info(chalk.yellow('<- 游戏结束 ->'))
+    rl.close();
   }
 
   public destroy () {

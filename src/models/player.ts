@@ -36,7 +36,7 @@ export default class Player {
     const players: Player[] = [];
 
     for (let i = 0; i < count; i++) {
-      players.push(new Player(`玩家${i + 1}`, 50 + Math.floor(Math.random() * 50)));
+      players.push(new Player(`玩家${i + 1}`, 50));
     }
 
     return players;
