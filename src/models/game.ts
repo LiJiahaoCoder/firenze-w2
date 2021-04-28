@@ -4,6 +4,7 @@ import Player from '@/models/player';
 import { Pokers } from '@/constants/poker';
 import { Operation, Round } from '@/types/game';
 import { rl } from '@/utils/readline';
+import { signalStdout, systemStdout, playerStdout } from '@/utils/console';
 
 export default class Game {
   private readonly _initialBigBlindBidBankRoll: number;
@@ -39,7 +40,7 @@ export default class Game {
     this._smallBlind = players[this.smallBlindIndex];
     this._bigBlind = this.bigBlindIndex === -1 ? undefined : players[this.bigBlindIndex];
     this._players = this.initializePlayers(players);
-    console.info(chalk.yellow(`<- 游戏开始，庄家为：玩家${this._button.name} ->`));
+    signalStdout(`<- 游戏开始，庄家为：玩家${this._button.name} ->`);
   }
 
   private get playersNumber () {
@@ -151,7 +152,7 @@ export default class Game {
   }
 
   private dealHolePokers() {
-    console.info(chalk.green('分发底牌...'));
+    systemStdout('分发底牌...');
 
     if (this.buttonIndex === this.playersNumber - 1) {
       this._players.forEach((player) => {
@@ -171,7 +172,7 @@ export default class Game {
       }
     }
 
-    console.info(chalk.green('> 底牌分发完毕'));
+    systemStdout('> 底牌分发完毕');
   }
 
   private increasePot (count: number) {
@@ -193,33 +194,33 @@ export default class Game {
   }
 
   private shuffle () {
-    console.info(chalk.green('洗牌中...'));
+    systemStdout('洗牌中...');
     this._pokers.sort(() => Math.random() > .5 ? -1 : 1);
-    console.info(chalk.green('> 洗牌结束'));
+    systemStdout('> 洗牌结束');
   }
 
   public async preFlop () {
     this._round = Round.PreFlop;
     this.initializeWaitingPlayers();
 
-    console.info(chalk.cyan('-------- 第一轮 --------'));
-    console.info(chalk.cyan('> 当前底池金额：0'));
+    systemStdout('-------- 第一轮 --------');
+    systemStdout('> 当前底池金额：0');
 
     this.dealHolePokers();
 
     this._operatingPlayer = this._waitingPlayers.shift()!;
     this._operatingPlayer!.bid(this._initialBigBlindBidBankRoll / 2);
     this.increasePot(this._initialBigBlindBidBankRoll / 2);
-    console.info(chalk.cyan(`${this._smallBlind.name}（小盲注）下注：${this._initialBigBlindBidBankRoll / 2}`));
-    console.info(chalk.cyan(`当前底池金额：${this.currentPotCount}，${this._smallBlind.name}手中还有筹码：${this._smallBlind.bankRoll}`));
+    playerStdout(`${this._smallBlind.name}（小盲注）下注：${this._initialBigBlindBidBankRoll / 2}`);
+    playerStdout(`当前底池金额：${this.currentPotCount}，${this._smallBlind.name}手中还有筹码：${this._smallBlind.bankRoll}`);
     this._operatedPlayers.push(this._operatingPlayer);
 
     if (this._bigBlind) {
       this._operatingPlayer = this._waitingPlayers.shift()!;
       this._operatingPlayer!.bid(this._initialBigBlindBidBankRoll);
       this.increasePot(this._initialBigBlindBidBankRoll);
-      console.info(chalk.cyan(`${this._bigBlind.name}（大盲注）下注：${this._initialBigBlindBidBankRoll}`));
-      console.info(chalk.cyan(`当前底池金额：${this.currentPotCount}，${this._bigBlind.name}手中还有筹码：${this._bigBlind.bankRoll}`));
+      playerStdout(`${this._bigBlind.name}（大盲注）下注：${this._initialBigBlindBidBankRoll}`);
+      playerStdout(`当前底池金额：${this.currentPotCount}，${this._bigBlind.name}手中还有筹码：${this._bigBlind.bankRoll}`);
       this._operatedPlayers.push(this._operatingPlayer);
     }
 
@@ -230,7 +231,7 @@ export default class Game {
 
   public async flop () {
     this._round = Round.Flop;
-    console.info(chalk.cyan('-------- 第二轮 --------'));
+    systemStdout('-------- 第二轮 --------');
     this._pokers.push(...this.deal(0, 3));
     this.initializeRoundRoles();
 
@@ -239,7 +240,7 @@ export default class Game {
 
   public async turn () {
     this._round = Round.Turn;
-    console.info(chalk.cyan('-------- 第三轮 --------'));
+    systemStdout('-------- 第三轮 --------');
     this._pokers.push(...this.deal(0, 1));
     this.initializeRoundRoles();
 
@@ -248,7 +249,7 @@ export default class Game {
 
   public async river () {
     this._round = Round.River;
-    console.info(chalk.cyan('-------- 第四轮 --------'));
+    systemStdout('-------- 第四轮 --------');
     this._pokers.push(...this.deal(0, 1));
     this.initializeRoundRoles();
 
@@ -333,7 +334,7 @@ export default class Game {
     } else {
       this.addOperatedPlayer(this._operatingPlayer!);
     }
-    console.info(chalk.cyan(`当前底池金额：${this.currentPotCount}，${this._operatingPlayer!.name}手中还有筹码：${this._operatingPlayer!.bankRoll}`));
+    systemStdout(`当前底池金额：${this.currentPotCount}，${this._operatingPlayer!.name}手中还有筹码：${this._operatingPlayer!.bankRoll}`);
     if (cb) {
       cb();
     } else {
@@ -377,7 +378,7 @@ export default class Game {
     await this.turn();
     await this.river();
 
-    console.info(chalk.yellow('<- 游戏结束 ->'))
+    signalStdout('<- 游戏结束 ->');
     rl.close();
   }
 
