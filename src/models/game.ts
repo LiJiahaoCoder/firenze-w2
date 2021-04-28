@@ -193,6 +193,66 @@ export default class Game {
     this._bustedPlayers.push(player);
   }
 
+  private async operate() {
+    let command = '';
+    while (!this.isFinishCurrentRound && !this._isOver) {
+      try {
+        command = String(await rl.question(chalk.cyan(`${this._operatingPlayer!.name}开始操作（请输入：${this.currentOperations.join('/')}）：`)));
+      } catch {}
+
+      const [action, count] = command.split(' ');
+
+      this.operateSwitchCase(action as Operation, count);
+    }
+  }
+
+  private updatePlayerAndPot (count?: number, isBust = false, cb?: () => void) {
+    if (count !== undefined) {
+      this._operatingPlayer!.bid(count);
+      this.increasePot(count);
+    }
+
+    if (isBust) {
+      this.addBustedPlayer(this._operatingPlayer!);
+    } else {
+      this.addOperatedPlayer(this._operatingPlayer!);
+    }
+    systemStdout(`当前底池金额：${this.currentPotCount}，${this._operatingPlayer!.name}手中还有筹码：${this._operatingPlayer!.bankRoll}`);
+    if (cb) {
+      cb();
+    } else {
+      this._operatingPlayer = this._waitingPlayers.length !== 0 ? this._waitingPlayers.shift()! : null;
+    }
+  }
+
+  private operateSwitchCase (action: Operation, count?: string) {
+    switch (action) {
+      case Operation.Bid:
+        if (!/\d+/.test(String(count))) {
+          throw new Error('下注金额应为自然数，金额与\"下注\"之间用空格分隔');
+        }
+        this.bid(Number(count));
+        break;
+      case Operation.Call:
+        this.call();
+        break;
+      case Operation.Raise:
+        this.raise();
+        break;
+      case Operation.Check:
+        this.check();
+        break;
+      case Operation.Fold:
+        this.fold();
+        break;
+      case Operation.AllIn:
+        this.allIn();
+        break;
+      default:
+        throw new Error('错误操作');
+    }
+  }
+
   private shuffle () {
     systemStdout('洗牌中...');
     this._pokers.sort(() => Math.random() > .5 ? -1 : 1);
@@ -256,19 +316,6 @@ export default class Game {
     await this.operate();
   }
 
-  private async operate() {
-    let command = '';
-    while (!this.isFinishCurrentRound && !this._isOver) {
-      try {
-        command = String(await rl.question(chalk.cyan(`${this._operatingPlayer!.name}开始操作（请输入：${this.currentOperations.join('/')}）：`)));
-      } catch {}
-
-      const [action, count] = command.split(' ');
-
-      this.operateSwitchCase(action as Operation, count);
-    }
-  }
-
   public bid (count: number) {
     if (!this.currentOperations.includes(Operation.Bid)) {
       throw new Error('当前不可下注任意金额');
@@ -321,53 +368,6 @@ export default class Game {
     }
 
     this.updatePlayerAndPot(this._operatingPlayer!.bankRoll);
-  }
-
-  private updatePlayerAndPot (count?: number, isBust = false, cb?: () => void) {
-    if (count !== undefined) {
-      this._operatingPlayer!.bid(count);
-      this.increasePot(count);
-    }
-
-    if (isBust) {
-      this.addBustedPlayer(this._operatingPlayer!);
-    } else {
-      this.addOperatedPlayer(this._operatingPlayer!);
-    }
-    systemStdout(`当前底池金额：${this.currentPotCount}，${this._operatingPlayer!.name}手中还有筹码：${this._operatingPlayer!.bankRoll}`);
-    if (cb) {
-      cb();
-    } else {
-      this._operatingPlayer = this._waitingPlayers.length !== 0 ? this._waitingPlayers.shift()! : null;
-    }
-  }
-
-  private operateSwitchCase (action: Operation, count?: string) {
-    switch (action) {
-      case Operation.Bid:
-        if (!/\d+/.test(String(count))) {
-          throw new Error('下注金额应为自然数，金额与\"下注\"之间用空格分隔');
-        }
-        this.bid(Number(count));
-        break;
-      case Operation.Call:
-        this.call();
-        break;
-      case Operation.Raise:
-        this.raise();
-        break;
-      case Operation.Check:
-        this.check();
-        break;
-      case Operation.Fold:
-        this.fold();
-        break;
-      case Operation.AllIn:
-        this.allIn();
-        break;
-      default:
-        throw new Error('错误操作');
-    }
   }
 
   public async start () {
