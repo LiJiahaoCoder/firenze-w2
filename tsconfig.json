@@ -3,8 +3,8 @@
     "target": "ESNext",
     "module": "CommonJS",
     "strict": true,
-    "noEmit": true,
     "allowJs": true,
+    "noEmit": true,
     "skipLibCheck": true,
     "noImplicitAny": true,
     "isolatedModules": true,
@@ -13,6 +13,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }
