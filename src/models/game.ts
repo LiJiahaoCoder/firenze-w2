@@ -1,30 +1,32 @@
-import chalk from 'chalk';
+import Judge from '@/models/judge';
 import Poker from '@/models/poker';
 import Player from '@/models/player';
-import { Pokers } from '@/constants/poker';
-import { Operation, Round } from '@/types/game';
+import Operator from '@/models/operator';
+import { Round } from '@/types/game';
 import { rl } from '@/utils/readline';
-import { signalStdout, systemStdout, playerStdout } from '@/utils/console';
+import { signalStdout, systemStdout } from '@/utils/console';
 
 export default class Game {
   private readonly _initialBigBlindBidBankRoll: number;
-  private _pot: Record<Round, number[]> = {
+  private readonly _pot: Record<Round, number[]> = {
     [Round.PreFlop]: [0],
     [Round.Flop]: [0],
     [Round.Turn]: [0],
     [Round.River]: [0],
   };
+  private readonly _operator: Operator;
+  private readonly _judge: Judge;
+  private readonly _pokers: Poker[]= [];
+  private readonly _players: Player[];
   private readonly _playersNumber: number;
   private readonly _buttonIndex: number;
-  private readonly _pokers: Poker[] = Pokers;
   private readonly _button: Player;
   private readonly _smallBlind: Player;
   private readonly _bigBlind?: Player;
-  private readonly _bustedPlayers: Player[] = [];
-  private _players: Player[];
   private _operatingPlayer!: Player | null;
   private _operatedPlayers: Player[] = [];
   private  _waitingPlayers: Player[] = [];
+  private  _bustedPlayer: Player[] = [];
   private _round!: Round;
   private _isOver = false;
 
@@ -33,6 +35,8 @@ export default class Game {
       throw new Error('牌局至少有两名玩家');
     }
 
+    this._operator = new Operator(this);
+    this._judge = new Judge(this, this._operator);
     this._playersNumber = players.length;
     this._initialBigBlindBidBankRoll = initialBigBlindBidBankRoll;
     this._buttonIndex = Math.floor(Math.random() * players.length);
@@ -51,74 +55,72 @@ export default class Game {
     return this._buttonIndex;
   }
 
-  private get smallBlindIndex () {
-    return this.buttonIndex + 1 + 1 <= this.playersNumber ? this.buttonIndex + 1 : 0;
+  public get smallBlindIndex () {
+    return this.getSpecifiedPlayerIndex(this.buttonIndex);
   }
 
-  private get bigBlindIndex () {
+  public get bigBlindIndex () {
     if (this.playersNumber === 2) {
       return -1;
     }
 
-    return this.smallBlindIndex + 1 + 1 <= this.playersNumber ? this.smallBlindIndex + 1 : 0;
+    return this.getSpecifiedPlayerIndex(this.smallBlindIndex);
   }
 
-  private get canCheck () {
-    return this._pot[this._round].every(p => p === 0);
+  public get pot () {
+    return this._pot;
   }
 
-  private get isFinishCurrentRound () {
+  public get round () {
+    return this._round;
+  }
+
+  public get judge () {
+    return this._judge;
+  }
+
+  public get players () {
+    return this._players;
+  }
+
+  public get isOver () {
+    return this._isOver;
+  }
+
+  public get isFinishCurrentRound () {
     return this._waitingPlayers.length === 0 && !this._operatingPlayer;
   }
 
+  public get initialBigBlindBidBankRoll () {
+    return this._initialBigBlindBidBankRoll;
+  }
+
   public get currentPotCount () {
-    const currentPot: number[][] = [];
+    let totalPot: number = 0;
 
     for (const key in this._pot) {
-      currentPot.push(this._pot[key as Round]);
-      if (key === this._round) {
-        break;
+      if (this._pot.hasOwnProperty(key)) {
+        totalPot += this._pot[key as Round].reduce((acc, cur) => (acc + cur), 0);
       }
     }
 
-    return currentPot.reduce((acc, cur) => {
-      return acc + cur.reduce((innerAcc, innerCur) => {
-        return innerAcc + innerCur;
-      }, 0);
-    }, 0);
+    return totalPot;
   }
 
   public get currentOperations () {
-    const operations = [Operation.Fold];
-    const callCount = this._pot[this._round][this._pot[this._round].length - 1];
-
-    if (this.canCheck) {
-      operations.push(Operation.Check);
-    }
-
-    if (this._round !== Round.PreFlop && this.canCheck) {
-      operations.push(Operation.Bid);
-    }
-
-    if (this._operatingPlayer!.bankRoll > 0 && this._operatingPlayer!.bankRoll < callCount) {
-      operations.push(Operation.AllIn);
-    } else if (!this.canCheck) {
-      operations.push(Operation.Call);
-
-      if (this._operatingPlayer!.bankRoll >= callCount + this._initialBigBlindBidBankRoll) {
-        operations.push(Operation.Raise);
-      }
-    }
-
-    return operations;
+    return this._operator.currentOperations;
   }
 
   public get operatingPlayer () {
     return this._operatingPlayer;
   }
 
-  private deal(start: number, count: number) {
-    return this._pokers.splice(start, count);
+  public get operatedPlayers () {
+    return this._operatedPlayers;
+  }
+
+  private getSpecifiedPlayerIndex(index: number) {
+    return index + 1 + 1 <= this.playersNumber ? index + 1 : 0;
   }
 
   private initializePlayers (players: Player[]) {
@@ -141,72 +143,17 @@ export default class Game {
     return _players;
   }
 
-  private initializeWaitingPlayers () {
-    this._waitingPlayers = this._players.slice();
-  }
-
-  private initializeRoundRoles() {
-    this.initializeWaitingPlayers();
-    this._operatedPlayers = [];
-    this._operatingPlayer = this._waitingPlayers.shift()!;
-  }
-
-  private dealHolePokers() {
-    systemStdout('分发底牌...');
-
-    if (this.buttonIndex === this.playersNumber - 1) {
-      this._players.forEach((player) => {
-        player.pokers = this.deal(0, 2);
-      });
-    } else {
-      for (let i = 0; i < this.playersNumber; i++) {
-        if (i <= this.buttonIndex) {
-          this._players[i].pokers = this.deal(
-              (this.playersNumber - this.buttonIndex - 1) * 2,
-              2
-          );
-          continue;
-        }
-
-        this._players[i].pokers = this.deal(0, 2);
-      }
-    }
-
-    systemStdout('> 底牌分发完毕');
-  }
-
-  private increasePot (count: number) {
-    if (count < 0) {
-      throw new Error('投注金额应为自然数');
-    }
-
-    this._pot[this._round].push(count);
-  }
-
   private addOperatedPlayer (player: Player) {
     this._operatedPlayers.push(player);
   }
 
   private addBustedPlayer (player: Player) {
-    const bustedPlayerId = this._players.findIndex((p) => p.id === player.id);
-    this._players.splice(bustedPlayerId, 1);
-    this._bustedPlayers.push(player);
+    const bustedPlayerIndex = this.players.findIndex((p) => p.id === player.id);
+    this._players.splice(bustedPlayerIndex, 1)
+    this._bustedPlayer.push(player);
   }
 
-  private async operate() {
-    let command = '';
-    while (!this.isFinishCurrentRound && !this._isOver) {
-      try {
-        command = String(await rl.question(chalk.cyan(`${this._operatingPlayer!.name}开始操作（请输入：${this.currentOperations.join('/')}）：`)));
-      } catch {}
-
-      const [action, count] = command.split(' ');
-
-      this.operateSwitchCase(action as Operation, count);
-    }
-  }
-
-  private updatePlayerAndPot (count?: number, isBust = false, cb?: () => void) {
+  public updatePlayerAndPot (count?: number, isBust = false, cb?: () => void) {
     if (count !== undefined) {
       this._operatingPlayer!.bid(count);
       this.increasePot(count);
@@ -217,161 +164,96 @@ export default class Game {
     } else {
       this.addOperatedPlayer(this._operatingPlayer!);
     }
+
     systemStdout(`当前底池金额：${this.currentPotCount}，${this._operatingPlayer!.name}手中还有筹码：${this._operatingPlayer!.bankRoll}`);
+
     if (cb) {
       cb();
     } else {
-      this._operatingPlayer = this._waitingPlayers.length !== 0 ? this._waitingPlayers.shift()! : null;
+      this.updateOperatingPlayer();
     }
   }
 
-  private operateSwitchCase (action: Operation, count?: string) {
-    switch (action) {
-      case Operation.Bid:
-        if (!/\d+/.test(String(count))) {
-          throw new Error('下注金额应为自然数，金额与\"下注\"之间用空格分隔');
-        }
-        this.bid(Number(count));
-        break;
-      case Operation.Call:
-        this.call();
-        break;
-      case Operation.Raise:
-        this.raise();
-        break;
-      case Operation.Check:
-        this.check();
-        break;
-      case Operation.Fold:
-        this.fold();
-        break;
-      case Operation.AllIn:
-        this.allIn();
-        break;
-      default:
-        throw new Error('错误操作');
-    }
+  public setRound (round: Round) {
+    this._round = round;
   }
 
-  private shuffle () {
-    systemStdout('洗牌中...');
-    this._pokers.sort(() => Math.random() > .5 ? -1 : 1);
-    systemStdout('> 洗牌结束');
+  public initializeRoundRoles() {
+    this.initializeWaitingPlayers();
+    this.setOperatedPlayers([]);
+    this.updateOperatingPlayer();
+  }
+
+  public updateOperatingPlayer () {
+    this._operatingPlayer = this._waitingPlayers.length !== 0 ? this._waitingPlayers.shift()! : null;
+  }
+
+  public updateOperatedPlayer () {
+    this._operatedPlayers.push(this._operatingPlayer!);
+  }
+
+  public increasePot (count: number) {
+    if (count < 0) {
+      throw new Error('投注金额应为自然数');
+    }
+
+    this._pot[this._round].push(count);
+  }
+
+  public initializeWaitingPlayers () {
+    this._waitingPlayers = this._players.slice();
+  }
+
+  public setCommonPokers (pokers: Poker[]) {
+    this._pokers.push(...pokers);
+  }
+
+  public setWaitingPlayers (players: Player[]) {
+    this._waitingPlayers.push(...players);
+  }
+
+  public setOperatedPlayers (players: Player[]) {
+    this._operatedPlayers = [...players];
   }
 
   public async preFlop () {
-    this._round = Round.PreFlop;
-    this.initializeWaitingPlayers();
-
-    systemStdout('-------- 第一轮 --------');
-    systemStdout('> 当前底池金额：0');
-
-    this.dealHolePokers();
-
-    this._operatingPlayer = this._waitingPlayers.shift()!;
-    this._operatingPlayer!.bid(this._initialBigBlindBidBankRoll / 2);
-    this.increasePot(this._initialBigBlindBidBankRoll / 2);
-    playerStdout(`${this._smallBlind.name}（小盲注）下注：${this._initialBigBlindBidBankRoll / 2}`);
-    playerStdout(`当前底池金额：${this.currentPotCount}，${this._smallBlind.name}手中还有筹码：${this._smallBlind.bankRoll}`);
-    this._operatedPlayers.push(this._operatingPlayer);
-
-    if (this._bigBlind) {
-      this._operatingPlayer = this._waitingPlayers.shift()!;
-      this._operatingPlayer!.bid(this._initialBigBlindBidBankRoll);
-      this.increasePot(this._initialBigBlindBidBankRoll);
-      playerStdout(`${this._bigBlind.name}（大盲注）下注：${this._initialBigBlindBidBankRoll}`);
-      playerStdout(`当前底池金额：${this.currentPotCount}，${this._bigBlind.name}手中还有筹码：${this._bigBlind.bankRoll}`);
-      this._operatedPlayers.push(this._operatingPlayer);
-    }
-
-    this._operatingPlayer = this._waitingPlayers.shift()!;
-
-    await this.operate();
+    await this.judge.preFlop();
   }
 
   public async flop () {
-    this._round = Round.Flop;
-    systemStdout('-------- 第二轮 --------');
-    this._pokers.push(...this.deal(0, 3));
-    this.initializeRoundRoles();
-
-    await this.operate();
+    await this.judge.flop();
   }
 
   public async turn () {
-    this._round = Round.Turn;
-    systemStdout('-------- 第三轮 --------');
-    this._pokers.push(...this.deal(0, 1));
-    this.initializeRoundRoles();
-
-    await this.operate();
+    await this.judge.turn();
   }
 
   public async river () {
-    this._round = Round.River;
-    systemStdout('-------- 第四轮 --------');
-    this._pokers.push(...this.deal(0, 1));
-    this.initializeRoundRoles();
-
-    await this.operate();
-  }
-
-  public bid (count: number) {
-    if (!this.currentOperations.includes(Operation.Bid)) {
-      throw new Error('当前不可下注任意金额');
-    }
-
-    if (count === 0) {
-      throw new Error('下注金额应是自然数');
-    }
-
-    this.updatePlayerAndPot(count);
+    await this.judge.river();
   }
 
   public call () {
-    if (!this.currentOperations.includes(Operation.Call)) {
-      throw new Error('当前不可跟注');
-    }
-
-    const callCount = this._pot[this._round][this._pot[this._round].length - 1];
-    this.updatePlayerAndPot(callCount);
+    this._operator.call();
   }
 
   public raise () {
-    if (!this.currentOperations.includes(Operation.Raise)) {
-      throw new Error('当前不可加注');
-    }
-
-    const raiseCount = this._pot[this._round][this._pot[this._round].length - 1] + this._initialBigBlindBidBankRoll;
-    this.updatePlayerAndPot(raiseCount, false, () => {
-      this._waitingPlayers.push(...this._operatedPlayers);
-      this._operatingPlayer = this._waitingPlayers.length !== 0 ? this._waitingPlayers.shift()! : null;
-      this._operatedPlayers = [];
-    });
-  }
-
-  public fold () {
-    this.updatePlayerAndPot(undefined, true);
+    this._operator.raise();
   }
 
   public check () {
-    if (!this.canCheck) {
-      throw new Error('当前不可过牌');
-    }
+    this._operator.check();
+  }
 
-    this.updatePlayerAndPot();
+  public fold () {
+    this._operator.fold();
   }
 
   public allIn () {
-    if (!this.currentOperations.includes(Operation.AllIn)) {
-      throw new Error('当前不可全押');
-    }
-
-    this.updatePlayerAndPot(this._operatingPlayer!.bankRoll);
+    this._operator.allIn();
   }
 
   public async start () {
-    this.shuffle();
+    this.judge.shuffle();
 
     await this.preFlop();
     await this.flop();
