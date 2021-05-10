@@ -1,4 +1,4 @@
-import {Pokers} from '@/constants/poker';
+import { createASetOfPokers } from '@/utils/poker';
 import Game from '@/models/game';
 import Poker from '@/models/poker';
 import Player from '@/models/player';
@@ -12,7 +12,7 @@ class Judge {
   private _operator: Operator;
 
   constructor (game: Game, operator: Operator) {
-    this._pokers = Pokers;
+    this._pokers = createASetOfPokers();
     this._game = game;
     this._operator = operator;
   }
@@ -21,10 +21,10 @@ class Judge {
     return this._pokers.splice(start, count);
   }
 
-  private dealHolePokers(players: Player[]) {
+  private dealHolePokers() {
     systemStdout('分发底牌...');
 
-    players.forEach((player) => {
+    this._game.players.forEach((player) => {
       player.pokers = this.deal(0, 2);
     });
 
@@ -64,7 +64,7 @@ class Judge {
     systemStdout(`-------- ${Round.PreFlop} --------`);
     systemStdout('> 当前底池金额：0');
 
-    this.dealHolePokers(this._game.players);
+    this.dealHolePokers();
 
     const smallBlind = this._game.players[this._game.smallBlindIndex];
     const bigBlind = this._game.players[this._game.bigBlindIndex];
@@ -89,6 +89,10 @@ class Judge {
 
   public async river () {
     await this.startCurrentRound(Round.River, 1);
+  }
+
+  public settle() {
+    return this._game.players[0];
   }
 }
 

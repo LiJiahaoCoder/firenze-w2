@@ -1,7 +1,6 @@
-import { Suit } from '@/types/poker';
-import Poker from '@/models/poker';
+import { Suit, Value } from '@/types/poker';
 
-export const ValueMap: Record<string, number> = {
+export const ValueMap: Record<Value, number> = {
   '2': 1,
   '3': 2,
   '4': 3,
@@ -23,11 +22,3 @@ export const SuitMap: Record<Suit, string> = {
   [Suit.Heart]: '♥️',
   [Suit.Spade]: '♠️',
 };
-
-export const Pokers: Array<Poker> = Object.keys(ValueMap).reduce((acc: Poker[], cur) => {
-  Object.keys(SuitMap).forEach((suit) => {
-    acc.push(new Poker(cur, suit as Suit));
-  });
-
-  return acc;
-}, []);
