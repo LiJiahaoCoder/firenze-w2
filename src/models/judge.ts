@@ -3,8 +3,8 @@ import Game from '@/models/game';
 import Poker from '@/models/poker';
 import Player from '@/models/player';
 import Operator from '@/models/operator';
-import {playerStdout, systemStdout} from '@/utils/console';
-import {Round} from '@/types/game';
+import { playerStdout, systemStdout } from '@/utils/console';
+import { Round } from '@/types/game';
 
 class Judge {
   private _pokers: Poker[];

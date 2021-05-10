@@ -1,4 +1,4 @@
-import { Suit, Value } from '@/types/poker';
+import { Combination, Suit, Value } from '@/types/poker';
 import { ValueMap } from '@/constants/poker';
 
 export default class Poker {
@@ -94,6 +94,44 @@ export default class Poker {
       Poker.isFourOfAKind(pokers) || Poker.isStraightFlush(pokers)
     );
   }
-}
 
-// export default class Poker {}
+  public static getPokerCombination (pokers: Poker[]) {
+    if (Poker.isHighCard(pokers)) {
+      return Combination.HighCard;
+    }
+
+    if (Poker.isStraightFlush(pokers)) {
+      return Combination.StraightFlush;
+    }
+
+    if (Poker.isFullHouse(pokers)) {
+      return Combination.FullHouse;
+    }
+
+    if (Poker.isOnePair(pokers)) {
+      return Combination.OnePair;
+    }
+
+    if (Poker.isTwoPair(pokers)) {
+      return Combination.TwoPair;
+    }
+
+    if (Poker.isThreeOfAKind(pokers)) {
+      return Combination.ThreeOfAKind;
+    }
+
+    if (Poker.isFlush(pokers)) {
+      return Combination.Flush;
+    }
+
+    if (Poker.isStraight(pokers)) {
+      return Combination.Straight;
+    }
+
+    if (Poker.isFourOfAKind(pokers)) {
+      return Combination.FourOfAKind;
+    }
+
+    return Combination.HighCard;
+  }
+}
