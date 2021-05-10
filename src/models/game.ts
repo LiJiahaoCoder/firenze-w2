@@ -1,3 +1,4 @@
+import Pot from '@/models/pot';
 import Judge from '@/models/judge';
 import Poker from '@/models/poker';
 import Player from '@/models/player';
@@ -8,12 +9,7 @@ import { signalStdout, systemStdout } from '@/utils/console';
 
 export default class Game {
   private readonly _initialBigBlindBidBankRoll: number;
-  private readonly _pot: Record<Round, number[]> = {
-    [Round.PreFlop]: [0],
-    [Round.Flop]: [0],
-    [Round.Turn]: [0],
-    [Round.River]: [0],
-  };
+  private readonly _pot;
   private readonly _operator: Operator;
   private readonly _judge: Judge;
   private readonly _pokers: Poker[]= [];
@@ -35,6 +31,7 @@ export default class Game {
       throw new Error('牌局至少有两名玩家');
     }
 
+    this._pot = new Pot();
     this._operator = new Operator(this);
     this._judge = new Judge(this, this._operator);
     this._playersNumber = players.length;
@@ -68,7 +65,7 @@ export default class Game {
   }
 
   public get pot () {
-    return this._pot;
+    return this._pot.pot;
   }
 
   public get round () {
@@ -96,15 +93,7 @@ export default class Game {
   }
 
   public get currentPotCount () {
-    let totalPot: number = 0;
-
-    for (const key in this._pot) {
-      if (this._pot.hasOwnProperty(key)) {
-        totalPot += this._pot[key as Round].reduce((acc, cur) => (acc + cur), 0);
-      }
-    }
-
-    return totalPot;
+    return this._pot.currentPotCount;
   }
 
   public get currentOperations () {
@@ -153,6 +142,10 @@ export default class Game {
     this._bustedPlayer.push(player);
   }
 
+  public increasePot (count: number) {
+    this._pot.increasePot(this.round, count);
+  }
+
   public updatePlayerAndPot (count?: number, isBust = false, cb?: () => void) {
     if (count !== undefined) {
       this._operatingPlayer!.bid(count);
@@ -190,14 +183,6 @@ export default class Game {
 
   public updateOperatedPlayer () {
     this._operatedPlayers.push(this._operatingPlayer!);
-  }
-
-  public increasePot (count: number) {
-    if (count < 0) {
-      throw new Error('投注金额应为自然数');
-    }
-
-    this._pot[this._round].push(count);
   }
 
   public initializeWaitingPlayers () {
