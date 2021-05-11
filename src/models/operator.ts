@@ -137,6 +137,7 @@ class Operator {
       throw new Error('当前不可全押');
     }
 
+    this._game.updateSidePot();
     this._game.updatePlayerAndPot(this._game.operatingPlayer!.bankRoll);
   }
 }

@@ -7,9 +7,14 @@ export default class Pot {
     [Round.Turn]: [0],
     [Round.River]: [0],
   };
+  private readonly _sidePot: Record<string, number> = {};
 
   public get pot () {
     return this._pot;
+  }
+
+  public get sidePot () {
+    return this._sidePot;
   }
 
   public get currentPotCount () {
@@ -22,6 +27,10 @@ export default class Pot {
     }
 
     return totalPot;
+  }
+
+  public setSidePot (id: string, count: number) {
+    this._sidePot[id] = count;
   }
 
   public increasePot (round: Round, count: number) {

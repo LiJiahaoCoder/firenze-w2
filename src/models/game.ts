@@ -12,7 +12,7 @@ export default class Game {
   private readonly _pot;
   private readonly _operator: Operator;
   private readonly _judge: Judge;
-  private readonly _pokers: Poker[]= [];
+  private readonly _pokers: Poker[] = [];
   private readonly _players: Player[];
   private readonly _playersNumber: number;
   private readonly _buttonIndex: number;
@@ -41,6 +41,7 @@ export default class Game {
     this._smallBlind = players[this.smallBlindIndex];
     this._bigBlind = this.bigBlindIndex === -1 ? undefined : players[this.bigBlindIndex];
     this._players = this.initializePlayers(players);
+    this._buttonIndex = this._players.length - 1;
     signalStdout(`<- 游戏开始，庄家为：玩家${this._button.name} ->`);
   }
 
@@ -72,6 +73,10 @@ export default class Game {
     return this._pot.pot;
   }
 
+  public get sidePot () {
+    return this._pot.sidePot;
+  }
+
   public get round () {
     return this._round;
   }
@@ -85,11 +90,11 @@ export default class Game {
   }
 
   public get isOver () {
-    return this._isOver;
+    return this._isOver || this._bustedPlayer.length === this.playersNumber - 1;
   }
 
   public get isFinishCurrentRound () {
-    return this._waitingPlayers.length === 0 && !this._operatingPlayer;
+    return (this._waitingPlayers.length === 0 && !this._operatingPlayer);
   }
 
   public get initialBigBlindBidBankRoll () {
@@ -142,7 +147,7 @@ export default class Game {
 
   private addBustedPlayer (player: Player) {
     const bustedPlayerIndex = this.players.findIndex((p) => p.id === player.id);
-    this._players.splice(bustedPlayerIndex, 1)
+    this._players.splice(bustedPlayerIndex, 1);
     this._bustedPlayer.push(player);
   }
 
@@ -154,21 +159,29 @@ export default class Game {
     if (count !== undefined) {
       this._operatingPlayer!.bid(count);
       this.increasePot(count);
+      systemStdout(`${this.operatingPlayer!.name}下注${count}，当前底池金额：${this.currentPotCount}，${this.operatingPlayer!.name}手中还有筹码：${this._operatingPlayer!.bankRoll}`);
     }
 
     if (isBust) {
       this.addBustedPlayer(this._operatingPlayer!);
+      systemStdout(`${this.operatingPlayer!.name}弃牌，当前底池金额：${this.currentPotCount}`);
     } else {
       this.addOperatedPlayer(this._operatingPlayer!);
     }
 
-    systemStdout(`当前底池金额：${this.currentPotCount}，${this._operatingPlayer!.name}手中还有筹码：${this._operatingPlayer!.bankRoll}`);
+    if (count === undefined && !isBust && !cb) {
+      systemStdout(`${this.operatingPlayer!.name}过牌，当前底池金额：${this.currentPotCount}`);
+    }
 
     if (cb) {
       cb();
     } else {
       this.updateOperatingPlayer();
     }
+  }
+
+  public updateSidePot () {
+    this._pot.setSidePot(this.operatingPlayer!.id, this.operatingPlayer!.bankRoll * this.players.length);
   }
 
   public setRound (round: Round) {
@@ -246,8 +259,12 @@ export default class Game {
     const increaseBankRollCount = this.currentPotCount / winners.length;
 
     winners.forEach(winner => {
-      this._players.find(p => p.id === winner.id)!.increaseBankRoll(increaseBankRollCount);
+      this.players.find(p => p.id === winner)!.increaseBankRoll(increaseBankRollCount);
     });
+
+    systemStdout(`胜者：${winners.map(
+      winner => `${this.players.find(p => p.id === winner)!.name}（赢 ${increaseBankRollCount}）`
+    ).join('/')}`)
   }
 
   public async start () {

@@ -73,7 +73,7 @@ class Judge {
     // 比较组合牌类型
     const maxCombinations = sortedCombinations.filter(c => c.combination === sortedCombinations[0].combination);
     if (maxCombinations.length === 1) {
-      return [this._game.players.find(p => p.id === maxCombinations[0].id)!];
+      return [maxCombinations[0].id];
     }
 
     // 相同组合类型下比较组合牌的大小
@@ -86,14 +86,14 @@ class Judge {
       duplicatedPokers = duplicatedPokers.filter(p => p.values[0] === duplicatedPokers[0].values[0]);
 
       if (duplicatedPokers.length === 1) {
-        return [this._game.players.find(p => p.id === duplicatedPokers[0].id)!];
+        return [duplicatedPokers[0].id];
       }
     }
 
     // 否则比较最大的牌的牌面
     const sortedValues = maxCombinations.sort((a, b) => b.maxValue - a.maxValue);
     const maxValues = sortedValues.filter(v => v.maxValue === sortedValues[0].maxValue);
-    return this._game.players.filter(p => maxValues.some(v => p.id === v.id));
+    return maxValues.map(v => v.id);
   }
 
   public shuffle () {

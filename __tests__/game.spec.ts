@@ -112,7 +112,7 @@ describe('game tests', () => {
       game.players.find(p => p.name === '玩家4')!.pokers = [new Poker('10', Suit.Diamond), new Poker('Q', Suit.Club)];
       game.start();
 
-      expect(game.judge.settle()[0]!.name).toBe('玩家3');
+      expect(game.players.find(p => p.id === game.judge.settle()[0])!.name).toBe('玩家3');
     },
   );
 
@@ -143,6 +143,35 @@ describe('game tests', () => {
 
       expect(game.players.find(p => p.name === '玩家3')!.bankRoll).toBe(80);
       spy.mockReset();
+    },
+  );
+
+  test(
+    'given players A/B/C/D, side pot has 20 bid, main pot has 30 bid, and A all in, A and C both have 50 bid, when A and C is winner, then A should have 70, C should have 80',
+    async () => {
+      game.destroy();
+      game = new Game(Player.initializePlayers(4), 10);
+      game.preFlop = jest.fn(async () => {});
+      game.flop = jest.fn(async () => {});
+      game.turn = jest.fn(async () => {});
+      game.river = jest.fn(async () => {});
+      const spy = jest.spyOn(game, 'currentPotCount', 'get');
+      const spySidePot = jest.spyOn(game, 'sidePot', 'get');
+      spy.mockReturnValueOnce(30);
+      spySidePot.mockReturnValueOnce({
+        [game.players.find(p => p.name === '玩家2')!.id]: 20,
+      });
+      game.judge.settle = jest.fn().mockReturnValueOnce({
+        side: [game.players.find(p => p.name === '玩家2')!.id],
+        main: [game.players.find(p => p.name === '玩家3')!.id],
+      });
+
+      await game.start();
+
+      expect(game.players.find(p => p.name === '玩家3')!.bankRoll).toBe(80);
+      expect(game.players.find(p => p.name === '玩家2')!.bankRoll).toBe(70);
+      spy.mockReset();
+      spySidePot.mockReset();
     },
   );
 });
