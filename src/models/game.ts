@@ -270,7 +270,7 @@ export default class Game {
       });
 
       systemStdout(`胜者：${winners.map(
-        winner => `${this.players.find(p => p.id === winner)!.name}（赢 ${increaseBankRollCount}）`
+        winner => `${this.players.find(p => p.id === winner)!.name}`
       ).join('/')}`);
     } else if (winners.every(winner => this.sidePot[winner] !== undefined)) {
       const ids = Object.keys(this.sidePot);
@@ -301,7 +301,7 @@ export default class Game {
       });
 
       systemStdout(`胜者：${winners.map(
-        winner => `${this.players.find(p => p.id === winner)!.name}（赢 ${increaseCount[winner]}）`
+        winner => `${this.players.find(p => p.id === winner)!.name}`
       ).join('/')}`);
     }
 
