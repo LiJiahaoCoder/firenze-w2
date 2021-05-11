@@ -64,6 +64,10 @@ export default class Game {
     return this.getSpecifiedPlayerIndex(this.smallBlindIndex);
   }
 
+  public get pokers () {
+    return this._pokers;
+  }
+
   public get pot () {
     return this._pot.pot;
   }

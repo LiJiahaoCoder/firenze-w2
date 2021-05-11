@@ -1,6 +1,7 @@
 import Poker from '@/models/poker';
-import { Suit, Value } from '@/types/poker';
+import { Suit, Value, Combination } from '@/types/poker';
 import { ValueMap } from '@/constants/poker';
+import { C } from '@/utils/math';
 
 export const createASetOfPokers = (): Poker[] => {
   return Object.keys(ValueMap).reduce<Poker[]>((acc, cur) => {
@@ -13,4 +14,27 @@ export const createASetOfPokers = (): Poker[] => {
 
     return acc;
   }, []);
+};
+
+export const getMaxCombination = (pokers: Poker[]): {
+  combination: Combination,
+  maxValue: number,
+  values: Poker[],
+} => {
+  const maxCombination = C(pokers, 5).sort(
+    (a, b) => (
+      Poker.getPokerCombination(b) - Poker.getPokerCombination(a)
+    ),
+  )[0];
+  const values = maxCombination.sort(
+    (a, b) => (
+      ValueMap[b.value] - ValueMap[a.value]
+    )
+  );
+
+  return {
+    values,
+    combination: Poker.getPokerCombination(maxCombination),
+    maxValue: ValueMap[values[0].value],
+  };
 };

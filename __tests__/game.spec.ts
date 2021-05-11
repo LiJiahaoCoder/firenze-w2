@@ -109,10 +109,10 @@ describe('game tests', () => {
       ]);
       game.players.find(p => p.name === '玩家1')!.pokers = [new Poker('7', Suit.Diamond), new Poker('7', Suit.Club)];
       game.players.find(p => p.name === '玩家2')!.pokers = [new Poker('2', Suit.Diamond), new Poker('A', Suit.Club)];
-      game.players.find(p => p.name === '玩家1')!.pokers = [new Poker('J', Suit.Diamond), new Poker('K', Suit.Club)];
-      game.players.find(p => p.name === '玩家1')!.pokers = [new Poker('10', Suit.Diamond), new Poker('Q', Suit.Club)];
+      game.players.find(p => p.name === '玩家3')!.pokers = [new Poker('J', Suit.Diamond), new Poker('K', Suit.Club)];
+      game.players.find(p => p.name === '玩家4')!.pokers = [new Poker('10', Suit.Diamond), new Poker('Q', Suit.Club)];
 
-      expect(game.judge.settle().name).toBe('玩家1');
+      expect(game.judge.settle()[0]!.name).toBe('玩家3');
     },
   );
 
