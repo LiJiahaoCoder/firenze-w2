@@ -86,7 +86,7 @@ class Judge {
       duplicatedPokers = duplicatedPokers.filter(p => p.values[0] === duplicatedPokers[0].values[0]);
 
       if (duplicatedPokers.length === 1) {
-        return [this._game.players.find(p => p.id === duplicatedPokers[0].id)];
+        return [this._game.players.find(p => p.id === duplicatedPokers[0].id)!];
       }
     }
 

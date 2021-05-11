@@ -241,6 +241,15 @@ export default class Game {
     this._operator.allIn();
   }
 
+  private settle () {
+    const winners = this.judge.settle();
+    const increaseBankRollCount = this.currentPotCount / winners.length;
+
+    winners.forEach(winner => {
+      this._players.find(p => p.id === winner.id)!.increaseBankRoll(increaseBankRollCount);
+    });
+  }
+
   public async start () {
     this.judge.shuffle();
 
@@ -249,6 +258,7 @@ export default class Game {
     await this.turn();
     await this.river();
 
+    this.settle();
     signalStdout('<- 游戏结束 ->');
     rl.close();
   }

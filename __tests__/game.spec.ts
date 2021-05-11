@@ -90,7 +90,7 @@ describe('game tests', () => {
   );
 
   test(
-    'given players A/B/C/D, common pokers are ♥️2/♦️3/♥️4/♠️5/♠️K, and A has 6/7, B has 2/A, C has J/K, D has 10/Q, when settle, then A is the only winner',
+    'given players A/B/C/D, common pokers are ♥️2/♦️3/♥️4/♠️5/♠️K, and A has 6/7, B has 2/A, C has J/K, D has 10/Q, when settle, then C is the only winner',
     () => {
       game.destroy();
       game = new Game(Player.initializePlayers(4), 10);
@@ -98,7 +98,6 @@ describe('game tests', () => {
       game.flop = jest.fn(async () => {});
       game.turn = jest.fn(async () => {});
       game.river = jest.fn(async () => {});
-      game.start();
 
       game.setCommonPokers([
         new Poker('2', Suit.Heart),
@@ -111,18 +110,39 @@ describe('game tests', () => {
       game.players.find(p => p.name === '玩家2')!.pokers = [new Poker('2', Suit.Diamond), new Poker('A', Suit.Club)];
       game.players.find(p => p.name === '玩家3')!.pokers = [new Poker('J', Suit.Diamond), new Poker('K', Suit.Club)];
       game.players.find(p => p.name === '玩家4')!.pokers = [new Poker('10', Suit.Diamond), new Poker('Q', Suit.Club)];
+      game.start();
 
       expect(game.judge.settle()[0]!.name).toBe('玩家3');
     },
   );
 
-  /*test(
-    'given players A/B/C/D, pot has 30 bid count and A has 40 bank roll left, when A is the only winner, then A has 70 bank roll',
-    () => {
-      game.settle();
+  test(
+    'given players A/B/C/D, pot has 30 bid count and C has 50 bank roll left, when C is the only winner, then C has 80 bank roll',
+    async () => {
       game.destroy();
+      game = new Game(Player.initializePlayers(4), 10);
+      game.preFlop = jest.fn(async () => {});
+      game.flop = jest.fn(async () => {});
+      game.turn = jest.fn(async () => {});
+      game.river = jest.fn(async () => {});
+      const spy = jest.spyOn(game, 'currentPotCount', 'get');
+      spy.mockReturnValueOnce(30);
 
-      expect(game.players.find(p => p.name === '玩家1')!.bankRoll).toBe(70);
+      game.setCommonPokers([
+        new Poker('2', Suit.Heart),
+        new Poker('3', Suit.Diamond),
+        new Poker('4', Suit.Heart),
+        new Poker('5', Suit.Spade),
+        new Poker('K', Suit.Spade),
+      ]);
+      game.players.find(p => p.name === '玩家1')!.pokers = [new Poker('7', Suit.Diamond), new Poker('7', Suit.Club)];
+      game.players.find(p => p.name === '玩家2')!.pokers = [new Poker('2', Suit.Diamond), new Poker('A', Suit.Club)];
+      game.players.find(p => p.name === '玩家3')!.pokers = [new Poker('J', Suit.Diamond), new Poker('K', Suit.Club)];
+      game.players.find(p => p.name === '玩家4')!.pokers = [new Poker('10', Suit.Diamond), new Poker('Q', Suit.Club)];
+      await game.start();
+
+      expect(game.players.find(p => p.name === '玩家3')!.bankRoll).toBe(80);
+      spy.mockReset();
     },
-  );*/
+  );
 });
