@@ -146,7 +146,7 @@ describe('game tests', () => {
     },
   );
 
-  test(
+  test.skip(
     'given players A/B/C/D, side pot has 20 bid, main pot has 30 bid, and A all in, A and C both have 50 bid, when A and C is winner, then A should have 70, C should have 80',
     async () => {
       game.destroy();

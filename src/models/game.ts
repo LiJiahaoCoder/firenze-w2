@@ -6,6 +6,7 @@ import Operator from '@/models/operator';
 import { Round } from '@/types/game';
 import { rl } from '@/utils/readline';
 import { signalStdout, systemStdout } from '@/utils/console';
+import { SuitMap } from '@/constants/poker';
 
 export default class Game {
   private readonly _initialBigBlindBidBankRoll: number;
@@ -94,7 +95,7 @@ export default class Game {
   }
 
   public get isFinishCurrentRound () {
-    return (this._waitingPlayers.length === 0 && !this._operatingPlayer);
+    return (this._waitingPlayers.length === 0 && !this.operatingPlayer);
   }
 
   public get initialBigBlindBidBankRoll () {
@@ -157,9 +158,13 @@ export default class Game {
 
   public updatePlayerAndPot (count?: number, isBust = false, cb?: () => void) {
     if (count !== undefined) {
+      if (count === this.operatingPlayer!.bankRoll) {
+        this.updateSidePot();
+      }
+
       this._operatingPlayer!.bid(count);
       this.increasePot(count);
-      systemStdout(`${this.operatingPlayer!.name}下注${count}，当前底池金额：${this.currentPotCount}，${this.operatingPlayer!.name}手中还有筹码：${this._operatingPlayer!.bankRoll}`);
+      systemStdout(`${this.operatingPlayer!.name}下注${count}，当前底池金额：${this.currentPotCount}，${this.operatingPlayer!.name}手中还有筹码：${this.operatingPlayer!.bankRoll}`);
     }
 
     if (isBust) {
@@ -203,7 +208,7 @@ export default class Game {
   }
 
   public initializeWaitingPlayers () {
-    this._waitingPlayers = this._players.slice();
+    this._waitingPlayers = this._players.slice().filter(p => p.bankRoll !== 0);
   }
 
   public setCommonPokers (pokers: Poker[]) {
@@ -255,16 +260,58 @@ export default class Game {
   }
 
   private settle () {
-    const winners = this.judge.settle();
-    const increaseBankRollCount = this.currentPotCount / winners.length;
+    let winners = this.judge.settle();
 
-    winners.forEach(winner => {
-      this.players.find(p => p.id === winner)!.increaseBankRoll(increaseBankRollCount);
+    if (winners.every(winner => this.sidePot[winner] === undefined)) {
+      const increaseBankRollCount = this.currentPotCount / winners.length;
+
+      winners.forEach(winner => {
+        this.players.find(p => p.id === winner)!.increaseBankRoll(increaseBankRollCount);
+      });
+
+      systemStdout(`胜者：${winners.map(
+        winner => `${this.players.find(p => p.id === winner)!.name}（赢 ${increaseBankRollCount}）`
+      ).join('/')}`);
+    } else if (winners.every(winner => this.sidePot[winner] !== undefined)) {
+      const ids = Object.keys(this.sidePot);
+      const increaseCount: Record<string, number> = {};
+
+      winners = this.players.sort(
+        (a, b) => a.bankRoll - b.bankRoll
+      ).map(p => p.id)
+        .filter(id => winners.includes(id));
+
+      winners.forEach(winner => {
+        let increaseBankRollCount = 0;
+
+        for (let i = 0; i < ids.length; i++) {
+          const id = ids[i];
+          increaseBankRollCount += this.sidePot[id];
+
+          if (id === winner) {
+            for (let j = 0; j <= i; j++) {
+              this.sidePot[ids[j]] = 0;
+            }
+            break;
+          }
+        }
+
+        increaseCount[winner] = increaseBankRollCount;
+        this.players.find(p => p.id === winner)!.increaseBankRoll(increaseBankRollCount);
+      });
+
+      systemStdout(`胜者：${winners.map(
+        winner => `${this.players.find(p => p.id === winner)!.name}（赢 ${increaseCount[winner]}）`
+      ).join('/')}`);
+    }
+
+    systemStdout(`公共牌：${this._pokers.map(p => `${SuitMap[p.suit]}  ${p.value}`).join('/')}`);
+    this.players.forEach(p => {
+      systemStdout(`${p.name}牌：${p.pokers.map(poker => `${SuitMap[poker.suit]}  ${poker.value}`).join(`/`)}`);
     });
-
-    systemStdout(`胜者：${winners.map(
-      winner => `${this.players.find(p => p.id === winner)!.name}（赢 ${increaseBankRollCount}）`
-    ).join('/')}`)
+    this._bustedPlayer.forEach(p => {
+      systemStdout(`${p.name}牌：${p.pokers.map(poker => `${SuitMap[poker.suit]}  ${poker.value}`).join(`/`)}`);
+    });
   }
 
   public async start () {

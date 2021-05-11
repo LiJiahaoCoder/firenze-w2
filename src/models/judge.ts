@@ -65,7 +65,10 @@ class Judge {
   private getWinners () {
     const sortedCombinations = this._game.players.map(
       p => ({
-        ...getMaxCombination([...p.pokers, ...this._game.pokers]),
+        ...getMaxCombination([
+          ...p.pokers,
+          ...this._game.pokers
+        ]),
         id: p.id,
       })
     ).sort((a, b) => b.combination - a.combination);

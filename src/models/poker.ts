@@ -61,13 +61,12 @@ export default class Poker {
       return false;
     }
 
-    const pokerValues = pokers.map(p => ValueMap[p.value]);
+    const pokerValues = pokers.map(p => ValueMap[p.value]).sort((a, b) => a - b);
 
-    const sum = pokerValues.reduce((acc, cur) => acc + cur, 0);
-    const min = Math.min(...pokerValues);
-    const max = Math.max(...pokerValues);
-
-    return (min + max) * 2.5 === sum;
+    return pokerValues[4] - pokerValues[0] === 4 &&
+      pokerValues[3] - pokerValues[1] === 2 &&
+      pokerValues[4] + pokerValues[0] === pokerValues[1] * 2 &&
+      pokerValues[3] + pokerValues[1] === pokerValues[1] * 2;
   }
 
   public static isFlush (pokers: Poker[]) {
@@ -108,6 +107,14 @@ export default class Poker {
       return Combination.FullHouse;
     }
 
+    if (Poker.isFlush(pokers)) {
+      return Combination.Flush;
+    }
+
+    if (Poker.isStraight(pokers)) {
+      return Combination.Straight;
+    }
+
     if (Poker.isOnePair(pokers)) {
       return Combination.OnePair;
     }
@@ -118,14 +125,6 @@ export default class Poker {
 
     if (Poker.isThreeOfAKind(pokers)) {
       return Combination.ThreeOfAKind;
-    }
-
-    if (Poker.isFlush(pokers)) {
-      return Combination.Flush;
-    }
-
-    if (Poker.isStraight(pokers)) {
-      return Combination.Straight;
     }
 
     if (Poker.isFourOfAKind(pokers)) {

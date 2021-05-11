@@ -21,7 +21,7 @@ export const getMaxCombination = (pokers: Poker[]): {
   maxValue: number,
   values: Poker[],
 } => {
-  const maxCombination = C(pokers, 5).sort(
+  const maxCombination = C(pokers.sort((a, b) => ValueMap[b.value] - ValueMap[a.value]), 5).sort(
     (a, b) => (
       Poker.getPokerCombination(b) - Poker.getPokerCombination(a)
     ),
