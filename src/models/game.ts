@@ -95,7 +95,7 @@ export default class Game {
   }
 
   public get isFinishCurrentRound () {
-    return (this._waitingPlayers.length === 0 && !this.operatingPlayer);
+    return this._waitingPlayers.length === 0 && !this.operatingPlayer;
   }
 
   public get initialBigBlindBidBankRoll () {
