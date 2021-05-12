@@ -286,13 +286,10 @@ export default class Game {
 
         for (let i = 0; i < ids.length; i++) {
           const id = ids[i];
-          increaseBankRollCount += this.sidePot[id];
-
-          if (id === winner) {
-            for (let j = 0; j <= i; j++) {
-              this.sidePot[ids[j]] = 0;
-            }
-            break;
+          if (i === 0) {
+            increaseBankRollCount = this.sidePot[id];
+          } else {
+            increaseBankRollCount = this.sidePot[id] - this.sidePot[ids[i - 1]];
           }
         }
 
