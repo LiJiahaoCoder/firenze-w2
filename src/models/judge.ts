@@ -1,4 +1,10 @@
-import { createASetOfPokers, getMaxCombination } from '@/utils/poker';
+import {
+  createASetOfPokers,
+  sortCombinations,
+  getMaxCombinations,
+  getMaxWithSameCombinations,
+  getMaxValues,
+} from '@/utils/poker';
 import Game from '@/models/game';
 import Poker from '@/models/poker';
 import Player from '@/models/player';
@@ -6,8 +12,6 @@ import Operator from '@/models/operator';
 import { playerStdout, systemStdout } from '@/utils/console';
 import { Round } from '@/types/game';
 import { Combination } from '@/types/poker';
-import { getDuplicatedElement } from '@/utils';
-import { ValueMap } from '@/constants/poker';
 
 const compareSameSuitValueSet = new Set([
   Combination.OnePair,
@@ -43,14 +47,16 @@ class Judge {
   }
 
   private operate(count: number, player?: Player) {
-    if (player) {
-      this._game.updateOperatingPlayer();
-      this._game.operatingPlayer!.bid(count);
-      this._game.increasePot(count);
-      playerStdout(`${player.name}下注：${count}`);
-      playerStdout(`当前底池金额：${this._game.currentPotCount}，${player.name}手中还有筹码：${player.bankRoll}`);
-      this._game.updateOperatedPlayer();
+    if (!player) {
+      return;
     }
+
+    this._game.updateOperatingPlayer();
+    this._game.operatingPlayer!.bid(count);
+    this._game.increasePot(count);
+    playerStdout(`${player.name}下注：${count}`);
+    playerStdout(`当前底池金额：${this._game.currentPotCount}，${player.name}手中还有筹码：${player.bankRoll}`);
+    this._game.updateOperatedPlayer();
   }
 
   private async startCurrentRound(round: Round, pokerCount: number) {
@@ -63,40 +69,25 @@ class Judge {
   }
 
   private getWinners () {
-    const sortedCombinations = this._game.players.map(
-      p => ({
-        ...getMaxCombination([
-          ...p.pokers,
-          ...this._game.pokers
-        ]),
-        id: p.id,
-      })
-    ).sort((a, b) => b.combination - a.combination);
+    const sortedCombinations = sortCombinations(this._game.players, this._game.pokers);
 
     // 比较组合牌类型
-    const maxCombinations = sortedCombinations.filter(c => c.combination === sortedCombinations[0].combination);
+    const maxCombinations = getMaxCombinations(sortedCombinations);
     if (maxCombinations.length === 1) {
       return [maxCombinations[0].id];
     }
 
     // 相同组合类型下比较组合牌的大小
     if (compareSameSuitValueSet.has(maxCombinations[0].combination)) {
-      let duplicatedPokers = maxCombinations.map(c => ({
-        values: getDuplicatedElement(c.values.map(p => ValueMap[p.value])).sort((a, b) => b - a),
-        id: c.id,
-      })).sort((a, b) => b.values[0] - a.values[0]);
+      const maxWithSameCombinations = getMaxWithSameCombinations(maxCombinations);
 
-      duplicatedPokers = duplicatedPokers.filter(p => p.values[0] === duplicatedPokers[0].values[0]);
-
-      if (duplicatedPokers.length === 1) {
-        return [duplicatedPokers[0].id];
+      if (maxWithSameCombinations.length === 1) {
+        return [maxWithSameCombinations[0].id];
       }
     }
 
     // 否则比较最大的牌的牌面
-    const sortedValues = maxCombinations.sort((a, b) => b.maxValue - a.maxValue);
-    const maxValues = sortedValues.filter(v => v.maxValue === sortedValues[0].maxValue);
-    return maxValues.map(v => v.id);
+    return getMaxValues(maxCombinations).map(v => v.id);
   }
 
   public shuffle () {

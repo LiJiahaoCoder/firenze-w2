@@ -65,8 +65,8 @@ export default class Poker {
 
     return pokerValues[4] - pokerValues[0] === 4 &&
       pokerValues[3] - pokerValues[1] === 2 &&
-      pokerValues[4] + pokerValues[0] === pokerValues[1] * 2 &&
-      pokerValues[3] + pokerValues[1] === pokerValues[1] * 2;
+      pokerValues[4] + pokerValues[0] === pokerValues[2] * 2 &&
+      pokerValues[3] + pokerValues[1] === pokerValues[2] * 2;
   }
 
   public static isFlush (pokers: Poker[]) {
