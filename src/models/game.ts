@@ -7,6 +7,7 @@ import { Round } from '@/types/game';
 import { rl } from '@/utils/readline';
 import { signalStdout, systemStdout } from '@/utils/console';
 import { SuitMap } from '@/constants/poker';
+import { Status } from '@/types/player';
 
 export default class Game {
   private readonly _initialBigBlindBidBankRoll: number;
@@ -20,10 +21,6 @@ export default class Game {
   private readonly _button: Player;
   private readonly _smallBlind: Player;
   private readonly _bigBlind?: Player;
-  private _operatingPlayer!: Player | null;
-  private _operatedPlayers: Player[] = [];
-  private  _waitingPlayers: Player[] = [];
-  private  _bustedPlayer: Player[] = [];
   private _round!: Round;
   private _isOver = false;
 
@@ -91,11 +88,11 @@ export default class Game {
   }
 
   public get isOver () {
-    return this._isOver || this._bustedPlayer.length === this.playersNumber - 1;
+    return this._isOver || this.bustedPlayers.length === this.playersNumber - 1;
   }
 
   public get isFinishCurrentRound () {
-    return this._waitingPlayers.length === 0 && !this.operatingPlayer;
+    return this.waitingPlayers.length === 0 && !this.operatingPlayer;
   }
 
   public get initialBigBlindBidBankRoll () {
@@ -111,11 +108,23 @@ export default class Game {
   }
 
   public get operatingPlayer () {
-    return this._operatingPlayer;
+    return this.players.find(p => p.status === Status.Operating) ?? null;
   }
 
   public get operatedPlayers () {
-    return this._operatedPlayers;
+    return this.players.filter(p => p.status === Status.Operated);
+  }
+
+  public get waitingPlayers () {
+    return this.players.filter(p => p.status === Status.Waiting);
+  }
+
+  public get bustedPlayers () {
+    return this.players.filter(p => p.status === Status.Busted);
+  }
+
+  public get unBustedPlayers () {
+    return this.players.filter(p => p.status !== Status.Busted);
   }
 
   private getSpecifiedPlayerIndex(index: number) {
@@ -142,14 +151,8 @@ export default class Game {
     return _players;
   }
 
-  private addOperatedPlayer (player: Player) {
-    this._operatedPlayers.push(player);
-  }
-
-  private addBustedPlayer (player: Player) {
-    const bustedPlayerIndex = this.players.findIndex((p) => p.id === player.id);
-    this._players.splice(bustedPlayerIndex, 1);
-    this._bustedPlayer.push(player);
+  private static addBustedPlayer (player: Player) {
+    player.status = Status.Busted;
   }
 
   public increasePot (count: number) {
@@ -162,16 +165,14 @@ export default class Game {
         this.updateSidePot();
       }
 
-      this._operatingPlayer!.bid(count);
+      this.operatingPlayer!.bid(count);
       this.increasePot(count);
       systemStdout(`${this.operatingPlayer!.name}下注${count}，当前底池金额：${this.currentPotCount}，${this.operatingPlayer!.name}手中还有筹码：${this.operatingPlayer!.bankRoll}`);
     }
 
     if (isBust) {
-      this.addBustedPlayer(this._operatingPlayer!);
       systemStdout(`${this.operatingPlayer!.name}弃牌，当前底池金额：${this.currentPotCount}`);
-    } else {
-      this.addOperatedPlayer(this._operatingPlayer!);
+      Game.addBustedPlayer(this.operatingPlayer!);
     }
 
     if (count === undefined && !isBust && !cb) {
@@ -195,32 +196,49 @@ export default class Game {
 
   public initializeRoundRoles() {
     this.initializeWaitingPlayers();
-    this.setOperatedPlayers([]);
+    this.resetOperatedPlayersToWaiting();
     this.updateOperatingPlayer();
   }
 
   public updateOperatingPlayer () {
-    this._operatingPlayer = this._waitingPlayers.length !== 0 ? this._waitingPlayers.shift()! : null;
+    const index = this.players.findIndex(p => p.status === Status.Operating);
+    const waitingPlayer = this.players.slice(index).find(p => p.status === Status.Waiting);
+
+    if (index === -1) {
+      this.waitingPlayers[0].status = Status.Operating;
+      return;
+    }
+
+    if (!waitingPlayer) {
+      if (this.waitingPlayers.length > 0) {
+        this.players[index].status = Status.Operated;
+        this.waitingPlayers[0].status = Status.Operating;
+        return;
+      } else {
+        this.players[index].status = Status.Operated;
+        return;
+      }
+    }
+
+    this.players[index].status = Status.Operated;
+    waitingPlayer.status = Status.Operating;
   }
 
   public updateOperatedPlayer () {
-    this._operatedPlayers.push(this._operatingPlayer!);
+    this.operatingPlayer!.status = Status.Operated;
   }
 
   public initializeWaitingPlayers () {
-    this._waitingPlayers = this._players.slice().filter(p => p.bankRoll !== 0);
+    this.players.filter(p => p.status !== Status.Busted && p.status !== Status.Finished && p.bankRoll !== 0)
+      .forEach(p => p.status = Status.Waiting);
   }
 
   public setCommonPokers (pokers: Poker[]) {
     this._pokers.push(...pokers);
   }
 
-  public setWaitingPlayers (players: Player[]) {
-    this._waitingPlayers.push(...players);
-  }
-
-  public setOperatedPlayers (players: Player[]) {
-    this._operatedPlayers = [...players];
+  public resetOperatedPlayersToWaiting () {
+    this.operatedPlayers.forEach(p => p.status = Status.Waiting);
   }
 
   public async preFlop () {
@@ -303,10 +321,10 @@ export default class Game {
     }
 
     systemStdout(`公共牌：${this._pokers.map(p => `${SuitMap[p.suit]}  ${p.value}`).join('/')}`);
-    this.players.forEach(p => {
+    this.unBustedPlayers.forEach(p => {
       systemStdout(`${p.name}牌：${p.pokers.map(poker => `${SuitMap[poker.suit]}  ${poker.value}`).join(`/`)}`);
     });
-    this._bustedPlayer.forEach(p => {
+    this.bustedPlayers.forEach(p => {
       systemStdout(`${p.name}牌：${p.pokers.map(poker => `${SuitMap[poker.suit]}  ${poker.value}`).join(`/`)}`);
     });
   }

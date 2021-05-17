@@ -69,7 +69,7 @@ class Judge {
   }
 
   private getWinners () {
-    const sortedCombinations = sortCombinations(this._game.players, this._game.pokers);
+    const sortedCombinations = sortCombinations(this._game.unBustedPlayers, this._game.pokers);
 
     // 比较组合牌类型
     const maxCombinations = getMaxCombinations(sortedCombinations);

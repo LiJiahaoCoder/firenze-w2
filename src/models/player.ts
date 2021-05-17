@@ -1,7 +1,9 @@
 import { v4 as uuid } from 'uuid';
 import Poker from '@/models/poker';
+import { Status } from '@/types/player';
 
 export default class Player {
+  public status: Status;
   private readonly _id: string = uuid();
   private readonly _name: string;
   private _bankRoll: number = 0;
@@ -10,6 +12,7 @@ export default class Player {
   constructor(name: string, bankRoll: number) {
     this._name = name;
     this._bankRoll = bankRoll;
+    this.status = Status.Waiting;
   }
 
   get id () {

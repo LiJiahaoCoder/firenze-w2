@@ -113,9 +113,8 @@ class Operator {
       this.currentCallCount + this._game.initialBigBlindBidBankRoll,
       false,
       () => {
-        this._game.setWaitingPlayers(this._game.operatedPlayers);
+        this._game.resetOperatedPlayersToWaiting();
         this._game.updateOperatingPlayer();
-        this._game.setOperatedPlayers([]);
       }
     );
   }
